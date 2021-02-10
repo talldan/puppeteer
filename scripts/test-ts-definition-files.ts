@@ -71,13 +71,23 @@ function packPuppeteer() {
   const result = spawnSync('npm', ['pack'], {
     encoding: 'utf-8',
   });
-
   if (result.status !== 0) {
     console.log('Failed to pack Puppeteer', result.stderr);
     process.exit(1);
   }
 
-  return `puppeteer-${version}.tgz`;
+  // Move from puppeteer-X.Y.Z.tgz to puppeteer.tgz so we don't have to update
+  // it when versions change.
+  const moveResult = spawnSync('mv', [
+    `puppeteer-${version}.tgz`,
+    'puppeteer.tgz',
+  ]);
+  if (moveResult.status !== 0) {
+    console.log('Failed to rename Puppeteer tar', moveResult.stderr);
+    process.exit(1);
+  }
+
+  return `puppeteer.tgz`;
 }
 
 const tar = packPuppeteer();
@@ -112,12 +122,19 @@ function testProject(folder: string) {
   );
 
   const tarLocation = path.relative(projectLocation, tarPath);
-  console.log('===> Installing Puppeteer from tar file');
+  console.log('===> Clearing left over node_modules to ensure clean slate');
+  // We don't care if this errors because if it did it's most likely because
+  // there was no node_modules folder, which is fine.
+  spawnSync('rm', ['-r', path.join(projectLocation, 'node_modules')], {
+    encoding: 'utf-8',
+  });
+  console.log('===> Installing Puppeteer from tar file', tarLocation);
   const { status, stderr, stdout } = spawnSync(
     'npm',
-    ['install', '--no-package-lock', tarLocation],
+    ['install', tarLocation],
     {
       env: {
+        ...process.env,
         PUPPETEER_SKIP_DOWNLOAD: '1',
       },
       cwd: projectLocation,
