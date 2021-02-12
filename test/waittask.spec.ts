@@ -680,6 +680,25 @@ describe('waittask specs', function () {
         )
       ).toBe('hello  world  ');
     });
+    it.only('should wait when text content within a node is modified to match the xpath', async () => {
+      const { page } = getTestState();
+      let error;
+      await page.setContent(`<div></div>`);
+      const waitForXPath = page.waitForXPath(
+        '//p[contains(.,"Three")]',
+      ).then(() => true).catch((errorMessage) => error = errorMessage);
+      await page.evaluate(() => {
+        const paragraphElement = document.createElement('p');
+        document.querySelector('div').appendChild(paragraphElement);
+        paragraphElement.innerText = 'One';
+        paragraphElement.firstChild.nodeValue = 'Two';
+        setTimeout(() => {
+          paragraphElement.firstChild.nodeValue = 'Three';
+        }, 1000);
+      });
+      expect(await waitForXPath).toBe(true);
+      expect(error).toBeFalsy();
+    });
     it('should respect timeout', async () => {
       const { page, puppeteer } = getTestState();
 
